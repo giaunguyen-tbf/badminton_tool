@@ -9,8 +9,9 @@ Web app chạy trên điện thoại để xếp cặp đánh đôi cho nhóm 4�
   - Tránh ghép lại cùng đồng đội và hạn chế gặp lại cùng đối thủ.
   - Chế độ **Cân trình**: tổng trình 2 đội gần bằng nhau, 4 người trên sân gần trình nhau. Chế độ **Ngẫu nhiên**: bỏ qua trình độ.
   - Người đến muộn được tính "bù trận" để không bị dồn đánh liên tục.
+- **Xem trước các vòng sau** (2–8 vòng, chỉnh trong ⚙️): lịch dự kiến giữ nguyên khi sang vòng mới, tự tính lại nếu có người đến/về, đổi chỗ hoặc đổi cài đặt. Chạm vào tên để xem người đó đánh / nghỉ vòng nào.
 - **Đổi chỗ thủ công**: chạm 2 người để hoán đổi (kể cả người đang nghỉ).
-- **Gửi nhóm**: chia sẻ / copy lịch vòng đấu để dán vào Zalo, Messenger.
+- **Gửi nhóm**: chia sẻ / copy vòng hiện tại hoặc cả lịch dự kiến để dán vào Zalo, Messenger.
 - **Ghi kết quả** (tuỳ chọn) và **thống kê**: số trận, thắng, nghỉ; lịch sử các vòng.
 
 ## Cách dùng
