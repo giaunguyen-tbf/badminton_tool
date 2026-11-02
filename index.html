@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f7b5f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Xếp Sân Cầu Lông</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏸</text></svg>">
+<style>
+:root{
+  --bg:#f4f6f5; --card:#ffffff; --text:#17201c; --muted:#66736d; --line:#dfe5e2;
+  --primary:#0f7b5f; --primary-ink:#ffffff; --primary-soft:#e2f3ed;
+  --team-a:#e8f0fe; --team-a-line:#9db8f2; --team-b:#fdeee6; --team-b-line:#efb194;
+  --win:#1f9d55; --danger:#c0392b; --warn:#b7791f; --sel:#ffd54a;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1412; --card:#18201c; --text:#e6ece9; --muted:#93a19a; --line:#2a3530;
+    --primary:#2bb48c; --primary-ink:#06130e; --primary-soft:#1b3a30;
+    --team-a:#1b2740; --team-a-line:#3c5a94; --team-b:#3a2419; --team-b-line:#93583a;
+    --win:#3ecf7f; --danger:#ef6b5b; --warn:#e0a84a; --sel:#b8901a;
+  }
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+header{position:sticky;top:0;z-index:5;background:var(--primary);color:var(--primary-ink);
+  padding:calc(10px + env(safe-area-inset-top)) 16px 10px;display:flex;align-items:center;gap:8px}
+header h1{font-size:18px;margin:0;flex:1}
+header .sub{font-size:13px;opacity:.85}
+main{max-width:640px;margin:0 auto;padding:12px 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
+.card h2{font-size:15px;margin:0 0 8px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.row{display:flex;gap:8px;align-items:center}
+.row.wrap{flex-wrap:wrap}
+.grow{flex:1;min-width:0}
+input[type=text],textarea,select{width:100%;font:inherit;color:var(--text);background:var(--bg);
+  border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+textarea{min-height:70px;resize:vertical}
+button{font:inherit;border:0;border-radius:10px;padding:10px 14px;min-height:44px;cursor:pointer;
+  background:var(--primary-soft);color:var(--text);font-weight:600}
+button.primary{background:var(--primary);color:var(--primary-ink)}
+button.ghost{background:transparent;border:1px solid var(--line)}
+button.danger{background:transparent;color:var(--danger);border:1px solid var(--line)}
+button.small{min-height:36px;padding:6px 10px;font-size:14px}
+button:disabled{opacity:.45}
+button.block{width:100%}
+.seg{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px}
+.seg button{flex:1;background:transparent;min-height:38px;font-weight:500}
+.seg button.on{background:var(--primary);color:var(--primary-ink)}
+.muted{color:var(--muted);font-size:14px}
+.player{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
+.player:first-of-type{border-top:0}
+.player .name{flex:1;min-width:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.player.off .name{color:var(--muted);font-weight:400;text-decoration:line-through}
+.chk{width:28px;height:28px;border-radius:8px;border:2px solid var(--line);display:grid;place-items:center;
+  background:transparent;padding:0;min-height:0;flex:none}
+.chk.on{background:var(--primary);border-color:var(--primary);color:var(--primary-ink)}
+.lvl{display:flex;gap:2px;flex:none}
+.lvl button{width:28px;height:32px;min-height:0;padding:0;border-radius:6px;font-size:13px;background:var(--bg);border:1px solid var(--line)}
+.lvl button.on{background:var(--primary);color:var(--primary-ink);border-color:var(--primary)}
+.x{background:transparent;color:var(--muted);width:32px;min-height:32px;padding:0;flex:none;font-size:18px}
+.court{border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-bottom:12px;background:var(--card)}
+.court-h{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;font-weight:700;border-bottom:1px solid var(--line)}
+.court-b{display:grid;grid-template-columns:1fr auto 1fr;align-items:stretch;gap:6px;padding:10px}
+.team{border-radius:10px;padding:6px;display:flex;flex-direction:column;gap:4px;border:2px solid transparent}
+.team.a{background:var(--team-a)} .team.b{background:var(--team-b)}
+.team.won{border-color:var(--win)}
+.team.lost{opacity:.55}
+.vs{align-self:center;font-weight:800;color:var(--muted);font-size:13px}
+.slot{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px;min-height:40px;font-weight:600;
+  text-align:left;color:var(--text);display:flex;justify-content:space-between;gap:4px;font-size:15px}
+.slot small{color:var(--muted);font-weight:500}
+.slot.sel{background:var(--sel);color:#1a1a1a}
+.slot.sel small{color:#333}
+.court-f{display:flex;gap:6px;padding:0 10px 10px}
+.court-f button{flex:1;font-size:13px;min-height:36px;padding:4px}
+.court-f button.on{background:var(--win);color:#fff}
+.rest{display:flex;flex-wrap:wrap;gap:6px}
+.rest .slot{flex:0 0 auto}
+.tag{display:inline-block;font-size:12px;padding:2px 8px;border-radius:999px;background:var(--primary-soft);color:var(--text);font-weight:600}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:7px 4px;text-align:center;border-top:1px solid var(--line)}
+th{color:var(--muted);font-weight:600;border-top:0}
+td:first-child,th:first-child{text-align:left}
+.hist-round{border-top:1px solid var(--line);padding:8px 0;font-size:14px}
+.hist-round:first-child{border-top:0}
+.hist-round b{color:var(--primary)}
+.w{color:var(--win);font-weight:700}
+nav{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);display:flex;
+  padding-bottom:env(safe-area-inset-bottom);z-index:5}
+nav button{flex:1;background:transparent;border-radius:0;min-height:60px;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:2px;font-size:12px;color:var(--muted);font-weight:600}
+nav button span{font-size:20px;line-height:1}
+nav button.on{color:var(--primary)}
+.empty{text-align:center;padding:24px 8px;color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);
+  background:var(--text);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;z-index:9;
+  opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw;text-align:center}
+.toast.show{opacity:1}
+.hint{font-size:13px;color:var(--muted);margin:6px 0 0}
+.stick{position:sticky;bottom:calc(68px + env(safe-area-inset-bottom));display:flex;gap:8px;padding:8px 0}
+.stick button{flex:1;box-shadow:0 2px 10px rgba(0,0,0,.15)}
+</style>
+</head>
+<body>
+<header>
+  <div style="font-size:24px">🏸</div>
+  <div class="grow"><h1>Xếp Sân Cầu Lông</h1><div class="sub" id="hdrSub"></div></div>
+</header>
+<main id="app"></main>
+<nav>
+  <button data-tab="players"><span>👥</span>Người chơi</button>
+  <button data-tab="play"><span>🏸</span>Xếp sân</button>
+  <button data-tab="stats"><span>📊</span>Thống kê</button>
+</nav>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================== STATE ================== */
+const KEY = 'badminton_tool_v1';
+const uid = () => Math.random().toString(36).slice(2, 9);
+const defaultState = () => ({
+  players: [],                       // {id, name, level(1-5), active}
+  settings: { courts: 2, mode: 'balanced' }, // mode: balanced | random
+  session: { rounds: [], credit: {} }, // rounds: {no, courts:[{a:[id,id], b:[id,id], winner}], resting:[ids], done}
+  tab: 'players'
+});
+let S;
+try { S = Object.assign(defaultState(), JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { S = defaultState(); }
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+let selSlot = null; // for swapping: {r, c, t, i} or {r, rest:i}
+
+const P = id => S.players.find(p => p.id === id) || { id, name: '?', level: 3 };
+const activePlayers = () => S.players.filter(p => p.active);
+const curRound = () => { const r = S.session.rounds; return r.length && !r[r.length - 1].done ? r[r.length - 1] : null; };
+
+/* ================== STATS ================== */
+const pairKey = (a, b) => a < b ? a + '|' + b : b + '|' + a;
+function computeStats(rounds) {
+  const st = { played: {}, sat: {}, wins: {}, partner: {}, opp: {}, lastSat: {}, satStreak: {} };
+  S.players.forEach(p => { st.played[p.id] = 0; st.sat[p.id] = 0; st.wins[p.id] = 0; st.satStreak[p.id] = 0; });
+  rounds.forEach((r, ri) => {
+    const inRound = new Set();
+    r.courts.forEach(c => {
+      [...c.a, ...c.b].forEach(id => { st.played[id] = (st.played[id] || 0) + 1; inRound.add(id); st.satStreak[id] = 0; });
+      st.partner[pairKey(c.a[0], c.a[1])] = (st.partner[pairKey(c.a[0], c.a[1])] || 0) + 1;
+      st.partner[pairKey(c.b[0], c.b[1])] = (st.partner[pairKey(c.b[0], c.b[1])] || 0) + 1;
+      c.a.forEach(x => c.b.forEach(y => { st.opp[pairKey(x, y)] = (st.opp[pairKey(x, y)] || 0) + 1; }));
+      if (c.winner) (c.winner === 'a' ? c.a : c.b).forEach(id => { st.wins[id] = (st.wins[id] || 0) + 1; });
+    });
+    (r.resting || []).forEach(id => { st.sat[id] = (st.sat[id] || 0) + 1; st.lastSat[id] = ri; st.satStreak[id] = (st.satStreak[id] || 0) + 1; });
+  });
+  return st;
+}
+
+/* ================== ALGORITHM ================== */
+function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+function arrangementCost(perm, st, balanced, L) {
+  let cost = 0;
+  for (let k = 0; k < perm.length; k += 4) {
+    const [a1, a2, b1, b2] = perm.slice(k, k + 4);
+    const pa = st.partner[pairKey(a1, a2)] || 0, pb = st.partner[pairKey(b1, b2)] || 0;
+    cost += 100 * (pa * pa + pb * pb);                     // tránh đánh cặp lại với cùng người
+    [a1, a2].forEach(x => [b1, b2].forEach(y => { const o = st.opp[pairKey(x, y)] || 0; cost += 15 * o * o; })); // tránh gặp lại đối thủ
+    if (balanced) {
+      const la = L[a1] + L[a2], lb = L[b1] + L[b2];
+      cost += 60 * Math.abs(la - lb);                      // 2 đội cân trình
+      const lv = [L[a1], L[a2], L[b1], L[b2]];
+      cost += 8 * (Math.max(...lv) - Math.min(...lv));     // 4 người trên sân gần trình nhau
+    }
+  }
+  return cost + Math.random(); // phá hoà ngẫu nhiên
+}
+
+function bestArrangement(chosen, st, balanced) {
+  let best = null, bestCost = Infinity;
+  const L = {}; chosen.forEach(id => L[id] = P(id).level);
+  const iters = 250;
+  for (let i = 0; i < iters; i++) {
+    let perm = shuffle(chosen);
+    let cost = arrangementCost(perm, st, balanced, L);
+    // leo đồi nhanh: thử đổi chỗ từng cặp
+    let improved = true, guard = 0;
+    while (improved && guard++ < 3) {
+      improved = false;
+      for (let x = 0; x < perm.length; x++) for (let y = x + 1; y < perm.length; y++) {
+        [perm[x], perm[y]] = [perm[y], perm[x]];
+        const c = arrangementCost(perm, st, balanced, L);
+        if (c < cost - 0.999) { cost = c; improved = true; } else { [perm[x], perm[y]] = [perm[y], perm[x]]; }
+      }
+    }
+    if (cost < bestCost) { bestCost = cost; best = perm.slice(); }
+    if (i > 40 && bestCost < 1) break;
+  }
+  const courts = [];
+  for (let k = 0; k < best.length; k += 4) courts.push({ a: [best[k], best[k + 1]], b: [best[k + 2], best[k + 3]], winner: null });
+  return courts;
+}
+
+function generateRound() {
+  const act = activePlayers();
+  if (act.length < 4) { toast('Cần ít nhất 4 người đang có mặt'); return; }
+  // bỏ vòng hiện tại (chưa xong) nếu đang xếp lại
+  if (curRound()) S.session.rounds.pop();
+  const done = S.session.rounds;
+  const st = computeStats(done);
+  const nCourts = Math.min(S.settings.courts, Math.floor(act.length / 4));
+  const need = nCourts * 4;
+  const credit = S.session.credit || {};
+  // Ưu tiên: ít trận nhất -> nghỉ nhiều vòng liên tiếp -> ngẫu nhiên
+  const order = shuffle(act).sort((x, y) => {
+    const px = (st.played[x.id] || 0) + (credit[x.id] || 0), py = (st.played[y.id] || 0) + (credit[y.id] || 0);
+    if (px !== py) return px - py;
+    return (st.satStreak[y.id] || 0) - (st.satStreak[x.id] || 0);
+  });
+  const chosen = order.slice(0, need).map(p => p.id);
+  const resting = order.slice(need).map(p => p.id);
+  const courts = bestArrangement(chosen, st, S.settings.mode === 'balanced');
+  S.session.rounds.push({ no: done.length + 1, courts, resting, done: false });
+  selSlot = null;
+  save(); render();
+}
+
+/* ================== ACTIONS ================== */
+function addPlayers(text) {
+  const names = text.split(/[\n,;]+/).map(s => s.replace(/^\s*\d+[.)\-\s]+/, '').trim()).filter(Boolean);
+  let added = 0;
+  names.forEach(n => {
+    if (S.players.some(p => p.name.toLowerCase() === n.toLowerCase())) return;
+    const p = { id: uid(), name: n, level: 3, active: true };
+    S.players.push(p); giveCredit(p.id); added++;
+  });
+  save(); render();
+  toast(added ? `Đã thêm ${added} người` : 'Tên đã có trong danh sách');
+}
+// người đến muộn: coi như đã chơi bằng người ít trận nhất để không bị dồn trận liên tục
+function giveCredit(id) {
+  const rounds = S.session.rounds.filter(r => r.done);
+  if (!rounds.length) return;
+  const st = computeStats(rounds);
+  const others = activePlayers().filter(p => p.id !== id);
+  if (!others.length) return;
+  const minPlayed = Math.min(...others.map(p => (st.played[p.id] || 0) + (S.session.credit[p.id] || 0)));
+  const mine = (st.played[id] || 0) + (S.session.credit[id] || 0);
+  if (minPlayed > mine) S.session.credit[id] = (S.session.credit[id] || 0) + (minPlayed - mine);
+}
+function togglePlayer(id) {
+  const p = P(id); p.active = !p.active;
+  if (p.active) giveCredit(id);
+  save(); render();
+}
+function setLevel(id, lv) { P(id).level = lv; save(); render(); }
+function removePlayer(id) {
+  const used = S.session.rounds.some(r => r.courts.some(c => [...c.a, ...c.b].includes(id)));
+  if (used) { toast('Người này đã có trong lịch sử buổi chơi — hãy bỏ tích "có mặt" thay vì xoá'); return; }
+  if (!confirm(`Xoá ${P(id).name}?`)) return;
+  S.players = S.players.filter(p => p.id !== id); save(); render();
+}
+function finishRound() {
+  const r = curRound(); if (!r) return;
+  r.done = true; save();
+  generateRound();
+  toast(`Đã chuyển sang vòng ${S.session.rounds.length}`);
+}
+function newSession() {
+  if (!confirm('Bắt đầu buổi mới? Lịch sử và thống kê buổi hiện tại sẽ bị xoá (danh sách người chơi vẫn giữ).')) return;
+  S.session = { rounds: [], credit: {} }; selSlot = null; save(); render();
+}
+function setWinner(ci, t) {
+  const r = curRound(); if (!r) return;
+  const c = r.courts[ci]; c.winner = c.winner === t ? null : t; save(); render();
+}
+// chạm 2 ô để đổi chỗ (kể cả với người đang nghỉ)
+function tapSlot(ref) {
+  const r = curRound(); if (!r) return;
+  if (!selSlot) { selSlot = ref; render(); return; }
+  const get = s => s.rest != null ? r.resting[s.rest] : r.courts[s.c][s.t][s.i];
+  const set = (s, v) => { if (s.rest != null) r.resting[s.rest] = v; else r.courts[s.c][s.t][s.i] = v; };
+  const same = JSON.stringify(selSlot) === JSON.stringify(ref);
+  if (!same) { const a = get(selSlot), b = get(ref); set(selSlot, b); set(ref, a); r.courts.forEach(c => c.winner = null); }
+  selSlot = null; save(); render();
+}
+function roundText(r) {
+  const lines = [`🏸 Vòng ${r.no}`];
+  r.courts.forEach((c, i) => lines.push(`Sân ${i + 1}: ${c.a.map(id => P(id).name).join(' & ')}  ⚔️  ${c.b.map(id => P(id).name).join(' & ')}`));
+  if (r.resting.length) lines.push(`Nghỉ: ${r.resting.map(id => P(id).name).join(', ')}`);
+  return lines.join('\n');
+}
+async function shareRound() {
+  const r = curRound(); if (!r) return;
+  const text = roundText(r);
+  try {
+    if (navigator.share) { await navigator.share({ text }); return; }
+    await navigator.clipboard.writeText(text); toast('Đã copy — dán vào Zalo/Messenger');
+  } catch (e) {
+    try { await navigator.clipboard.writeText(text); toast('Đã copy — dán vào Zalo/Messenger'); } catch (e2) { prompt('Copy nội dung:', text); }
+  }
+}
+
+/* ================== RENDER ================== */
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let toastT;
+function toast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2200); }
+
+function render() {
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === S.tab));
+  const n = activePlayers().length;
+  const rounds = S.session.rounds;
+  document.getElementById('hdrSub').textContent = `${n} người có mặt · ${S.settings.courts} sân` + (rounds.length ? ` · vòng ${rounds.length}` : '');
+  const app = document.getElementById('app');
+  app.innerHTML = S.tab === 'players' ? viewPlayers() : S.tab === 'play' ? viewPlay() : viewStats();
+}
+
+function viewPlayers() {
+  const act = activePlayers().length;
+  const list = S.players.length ? S.players.map(p => `
+    <div class="player ${p.active ? '' : 'off'}">
+      <button class="chk ${p.active ? 'on' : ''}" onclick="togglePlayer('${p.id}')" aria-label="Có mặt">${p.active ? '✓' : ''}</button>
+      <div class="name">${esc(p.name)}</div>
+      <div class="lvl">${[1, 2, 3, 4, 5].map(l => `<button class="${p.level === l ? 'on' : ''}" onclick="setLevel('${p.id}',${l})">${l}</button>`).join('')}</div>
+      <button class="x" onclick="removePlayer('${p.id}')" aria-label="Xoá">×</button>
+    </div>`).join('') : `<div class="empty">Chưa có người chơi nào.<br>Thêm tên ở ô phía trên.</div>`;
+  return `
+  <div class="card">
+    <h2>Thêm người chơi</h2>
+    <textarea id="names" placeholder="Nhập tên, mỗi dòng 1 người (hoặc cách nhau bằng dấu phẩy). Có thể dán cả danh sách từ Zalo."></textarea>
+    <div class="row" style="margin-top:8px"><button class="primary block" onclick="addPlayers(document.getElementById('names').value)">+ Thêm</button></div>
+  </div>
+  <div class="card">
+    <div class="row" style="justify-content:space-between;margin-bottom:4px">
+      <h2 style="margin:0">Danh sách (${act}/${S.players.length})</h2>
+      <div class="row">
+        <button class="small ghost" onclick="S.players.forEach(p=>p.active=true);save();render()">Chọn hết</button>
+        <button class="small ghost" onclick="S.players.forEach(p=>p.active=false);save();render()">Bỏ hết</button>
+      </div>
+    </div>
+    <p class="hint" style="margin:0 0 6px">✓ = có mặt hôm nay · số 1–5 = trình độ (5 là mạnh nhất)</p>
+    ${list}
+  </div>
+  ${act >= 4 ? `<button class="primary block" onclick="S.tab='play';save();render()">Sang xếp sân →</button>` : ''}`;
+}
+
+function slotHtml(id, ref, r) {
+  const sel = selSlot && JSON.stringify(selSlot) === JSON.stringify(ref);
+  const p = P(id);
+  return `<button class="slot ${sel ? 'sel' : ''}" onclick='tapSlot(${JSON.stringify(ref)})'><span>${esc(p.name)}</span><small>${S.settings.mode === 'balanced' ? p.level : ''}</small></button>`;
+}
+
+function viewPlay() {
+  const act = activePlayers().length;
+  const maxCourts = Math.max(1, Math.floor(act / 4));
+  const r = curRound();
+  const settings = `
+  <div class="card">
+    <h2>Cài đặt</h2>
+    <div class="row" style="margin-bottom:8px">
+      <div class="muted" style="width:80px">Số sân</div>
+      <div class="seg grow">${[1, 2, 3, 4, 5].map(c => `<button class="${S.settings.courts === c ? 'on' : ''}" onclick="S.settings.courts=${c};save();render()">${c}</button>`).join('')}</div>
+    </div>
+    <div class="row">
+      <div class="muted" style="width:80px">Cách xếp</div>
+      <div class="seg grow">
+        <button class="${S.settings.mode === 'balanced' ? 'on' : ''}" onclick="S.settings.mode='balanced';save();render()">Cân trình</button>
+        <button class="${S.settings.mode === 'random' ? 'on' : ''}" onclick="S.settings.mode='random';save();render()">Ngẫu nhiên</button>
+      </div>
+    </div>
+    ${S.settings.courts > maxCourts && act >= 4 ? `<p class="hint">⚠️ ${act} người chỉ đủ cho ${maxCourts} sân — sẽ dùng ${maxCourts} sân.</p>` : ''}
+  </div>`;
+  if (act < 4) return settings + `<div class="card empty">Cần ít nhất 4 người có mặt.<br><br><button class="primary" onclick="S.tab='players';save();render()">Thêm người chơi</button></div>`;
+  if (!r) return settings + `
+    <div class="card empty">${S.session.rounds.length ? `Đã chơi ${S.session.rounds.length} vòng.` : 'Chưa xếp vòng nào.'}<br><br>
+      <button class="primary" onclick="generateRound()">🎲 Xếp vòng ${S.session.rounds.length + 1}</button></div>`;
+
+  const ri = S.session.rounds.length - 1;
+  const courts = r.courts.map((c, ci) => {
+    const team = t => `<div class="team ${t} ${c.winner === t ? 'won' : c.winner ? 'lost' : ''}">
+      ${c[t].map((id, i) => slotHtml(id, { c: ci, t, i }, r)).join('')}
+      ${S.settings.mode === 'balanced' ? `<div class="muted" style="text-align:center;font-size:12px">Tổng trình: ${c[t].reduce((s, id) => s + P(id).level, 0)}</div>` : ''}
+    </div>`;
+    return `<div class="court">
+      <div class="court-h"><span>Sân ${ci + 1}</span></div>
+      <div class="court-b">${team('a')}<div class="vs">VS</div>${team('b')}</div>
+      <div class="court-f">
+        <button class="${c.winner === 'a' ? 'on' : ''}" onclick="setWinner(${ci},'a')">Đội trái thắng</button>
+        <button class="${c.winner === 'b' ? 'on' : ''}" onclick="setWinner(${ci},'b')">Đội phải thắng</button>
+      </div>
+    </div>`;
+  }).join('');
+  const rest = r.resting.length ? `<div class="card"><h2>Nghỉ vòng này (${r.resting.length})</h2>
+      <div class="rest">${r.resting.map((id, i) => slotHtml(id, { rest: i }, r)).join('')}</div></div>` : '';
+  return `
+  <div class="row" style="justify-content:space-between;margin:2px 0 10px">
+    <div style="font-size:20px;font-weight:800">Vòng ${r.no}</div>
+    <div class="row"><button class="small ghost" onclick="shareRound()">📤 Gửi nhóm</button></div>
+  </div>
+  ${courts}${rest}
+  <p class="hint">💡 Chạm vào 2 người để đổi chỗ (có thể đổi với người đang nghỉ). Ghi kết quả là tuỳ chọn.</p>
+  <div class="stick">
+    <button class="ghost" style="background:var(--card)" onclick="generateRound()">🔄 Xếp lại</button>
+    <button class="primary" onclick="finishRound()">✅ Vòng tiếp</button>
+  </div>
+  <details class="card"><summary class="muted">Cài đặt (áp dụng từ lần xếp tiếp theo)</summary>${settings.replace('<div class="card">', '<div style="margin-top:8px">')}</details>`;
+}
+
+function viewStats() {
+  const rounds = S.session.rounds;
+  const st = computeStats(rounds.filter(r => r.done));
+  const rows = S.players.filter(p => p.active || st.played[p.id] || st.sat[p.id])
+    .sort((a, b) => (st.played[b.id] - st.played[a.id]) || (st.wins[b.id] - st.wins[a.id]) || a.name.localeCompare(b.name))
+    .map(p => `<tr><td>${esc(p.name)}${p.active ? '' : ' <span class="muted">(về)</span>'}</td><td>${st.played[p.id] || 0}</td><td>${st.wins[p.id] || 0}</td><td>${st.sat[p.id] || 0}</td></tr>`).join('');
+  const hist = rounds.slice().reverse().map(r => `<div class="hist-round"><b>Vòng ${r.no}</b>${r.done ? '' : ' <span class="tag">đang chơi</span>'}<br>
+    ${r.courts.map((c, i) => `Sân ${i + 1}: <span class="${c.winner === 'a' ? 'w' : ''}">${c.a.map(id => esc(P(id).name)).join(' & ')}</span> – <span class="${c.winner === 'b' ? 'w' : ''}">${c.b.map(id => esc(P(id).name)).join(' & ')}</span>`).join('<br>')}
+    ${r.resting.length ? `<br><span class="muted">Nghỉ: ${r.resting.map(id => esc(P(id).name)).join(', ')}</span>` : ''}</div>`).join('');
+  return `
+  <div class="card"><h2>Thống kê buổi này</h2>
+    ${rows ? `<table><thead><tr><th>Tên</th><th>Trận</th><th>Thắng</th><th>Nghỉ</th></tr></thead><tbody>${rows}</tbody></table>
+    <p class="hint">Chỉ tính các vòng đã bấm "Xong".</p>` : '<div class="empty">Chưa có dữ liệu</div>'}
+  </div>
+  <div class="card"><h2>Lịch sử</h2>${hist || '<div class="empty">Chưa có vòng nào</div>'}</div>
+  <button class="danger block" onclick="newSession()">🧹 Bắt đầu buổi mới</button>`;
+}
+
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => { S.tab = b.dataset.tab; selSlot = null; save(); render(); window.scrollTo(0, 0); });
+render();
+</script>
+</body>
+</html>
