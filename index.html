@@ -62,7 +62,8 @@ svg{display:block}
 .hero{background:var(--grad);color:#fff;
   padding:calc(12px + env(safe-area-inset-top)) 16px 14px;border-radius:0 0 24px 24px;position:relative;overflow:hidden}
 .hero::after{content:"";position:absolute;right:-40px;top:-30px;width:180px;height:180px;border-radius:50%;
-  background:radial-gradient(circle,rgba(255,255,255,.18),transparent 70%)}
+  background:radial-gradient(circle,rgba(255,255,255,.18),transparent 70%);pointer-events:none}
+.hero-top,.pills{position:relative;z-index:1}
 .hero-top{display:flex;align-items:center;gap:10px;max-width:640px;margin:0 auto}
 .logo{width:36px;height:36px;border-radius:12px;background:rgba(255,255,255,.18);display:grid;place-items:center;font-size:22px;flex:none}
 .hero h1{font-size:19px;font-weight:800;margin:0;letter-spacing:-.01em;flex:1}
@@ -226,6 +227,27 @@ textarea{width:100%;min-height:120px;border-radius:16px;border:1.5px solid var(-
 .focus{display:flex;align-items:center;gap:10px;background:var(--accent-soft);border:1.5px solid var(--accent);border-radius:16px;padding:10px 12px;margin-bottom:10px}
 .focus .x{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;color:var(--muted);flex:none}
 
+/* ---------- rooms ---------- */
+.ht{flex:1;min-width:0}
+.ht h1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rsub{font-size:12px;opacity:.9;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rsub .dot{vertical-align:middle;margin-right:5px}
+.room-btn{flex:none;height:38px;padding:0 12px;border-radius:12px;background:rgba(255,255,255,.18);color:#fff;font-weight:700;font-size:13px;border:1px solid rgba(255,255,255,.25)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#f5b82e;flex:none}
+.dot.online{background:#4ade80;box-shadow:0 0 0 3px rgba(74,222,128,.25)}
+.dot.offline{background:#f87171}
+.room-card{display:flex;align-items:center;gap:12px}
+.room-card .logo{background:var(--brand-soft);width:48px;height:48px;font-size:24px;border-radius:14px}
+.room-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}
+.role{display:inline-flex;align-items:center;height:28px;padding:0 10px;border-radius:999px;background:var(--surface-2);font-size:12px;font-weight:700}
+.role.adm{background:var(--brand-soft);color:var(--brand)}
+.hint-i{font-weight:500;opacity:.8}
+.check{display:flex;align-items:center;gap:10px;font-size:14px;margin:4px 2px 0}
+.check input{width:20px;height:20px;accent-color:var(--brand)}
+.ro-note{background:var(--surface);box-shadow:var(--shadow);border-radius:16px;padding:12px 14px;font-size:13.5px;color:var(--muted)}
+.ro .half .win{pointer-events:none}
+[hidden]{display:none!important}
+
 /* ---------- action bar & nav ---------- */
 .bar{position:fixed;left:0;right:0;bottom:calc(84px + env(safe-area-inset-bottom));z-index:6;padding:0 16px;pointer-events:none}
 .bar-in{max-width:608px;margin:0 auto;display:flex;gap:10px;pointer-events:auto}
@@ -311,6 +333,7 @@ nav .badge{position:absolute;top:6px;right:calc(50% - 22px);min-width:18px;heigh
 <div class="sheet" id="sheet"></div>
 <div class="toast" id="toast"></div>
 
+<script src="config.js"></script>
 <script>
 /* ================== STATE ================== */
 const KEY = 'badminton_tool_v1';
@@ -321,10 +344,17 @@ const defaultState = () => ({
   session: { rounds: [], credit: {} }, // rounds: {no, courts:[{a:[id,id], b:[id,id], winner}], resting:[ids], done}
   tab: 'players'
 });
-let S;
-try { S = Object.assign(defaultState(), JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { S = defaultState(); }
-S.settings = Object.assign({ courts: 2, mode: 'balanced', preview: 3 }, S.settings);
-const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+let room = null; // phòng online đang vào: {id, name, key, admin, pw}
+try { room = window.FIREBASE_CONFIG ? JSON.parse(localStorage.getItem('badminton_room_cur') || 'null') : null; } catch (e) {}
+const ctxKey = () => room ? 'badminton_room_' + room.id : KEY; // mỗi phòng 1 bản lưu riêng trên máy
+function loadState() {
+  let st; try { st = Object.assign(defaultState(), JSON.parse(localStorage.getItem(ctxKey()) || '{}')); } catch (e) { st = defaultState(); }
+  st.settings = Object.assign({ courts: 2, mode: 'balanced', preview: 3 }, st.settings);
+  st.session = Object.assign({ rounds: [], credit: {} }, st.session);
+  return st;
+}
+let S = loadState();
+const save = () => { try { localStorage.setItem(ctxKey(), JSON.stringify(S)); } catch (e) {} if (room && room.admin) schedulePush(); };
 let selSlot = null;     // ô đang chọn để đổi chỗ: {c, t, i} hoặc {rest:i}
 let animNext = false;   // hiệu ứng khi vừa xếp vòng mới
 let bulkMode = false;   // ô dán nhiều tên
@@ -457,6 +487,7 @@ function planValid(rd) {
 }
 // Giữ nguyên các vòng dự kiến còn hợp lệ, chỉ bổ sung cho đủ số vòng
 function ensurePlan(force) {
+  if (room && !room.admin) return; // người xem dùng lịch do quản lý tạo
   if (!curRound() || activePlayers().length < 4) { S.session.plan = []; return; }
   const sig = planSig();
   if (!force && S.session.planSig === sig && (S.session.plan || []).length === S.settings.preview) return;
@@ -494,6 +525,10 @@ function giveCredit(id) {
 function togglePlayer(id) {
   const p = P(id); p.active = !p.active;
   if (p.active) giveCredit(id);
+  save(); render();
+}
+function setAllActive(on) {
+  S.players.forEach(p => { if (on && !p.active) { p.active = true; giveCredit(p.id); } else if (!on) p.active = false; });
   save(); render();
 }
 function setLevel(id, lv) { P(id).level = lv; save(); render(); }
@@ -722,17 +757,283 @@ function settingsHtml() {
       ${S.settings.courts > maxC ? `<br>Chỉ đủ người cho ${maxC} sân.` : ''}</div></div>` : ''}`;
 }
 
+/* ================== PHÒNG ONLINE (Firebase) ==================
+ * rooms/<mã phòng>            {name, created}       công khai: chỉ để biết phòng có tồn tại
+ * data/<SHA256(mã+mật khẩu)>  {s: JSON, t, by}      ai biết mật khẩu mới tính ra được địa chỉ này
+ * adminKeys/<khoá xem>        SHA256(mã+mã quản lý) không ai đọc được
+ * admins/<khoá xem>/<uid>     thiết bị đã nhập đúng mã quản lý -> được ghi data
+ */
+const CLOUD_ON = !!window.FIREBASE_CONFIG;
+const FB_VER = '10.12.2';
+let FB = null, fbDb = null, myUid = null, cloudReady = null;
+let roomStatus = 'connecting'; // connecting | online | offline
+let unsubRoom = null, lastRemote = '', pushT = null;
+const LS_RECENT = 'badminton_rooms_recent';
+
+async function sha256(s) {
+  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+const viewKeyOf = (id, pw) => sha256('view|' + id + '|' + pw);
+const adminKeyOf = (id, code) => sha256('admin|' + id + '|' + code);
+const normId = s => String(s || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd')
+  .replace(/[^a-z0-9-]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 30);
+const dbRef = path => FB.ref(fbDb, path);
+const canEdit = () => !room || !!room.admin;
+const syncPart = () => ({ players: S.players, settings: S.settings, session: S.session });
+
+async function loadFirebase() {
+  if (window.__FB_LOADER) return window.__FB_LOADER();
+  const base = `https://www.gstatic.com/firebasejs/${FB_VER}/`;
+  const mods = await Promise.all(['firebase-app.js', 'firebase-auth.js', 'firebase-database.js'].map(f => import(base + f)));
+  return Object.assign({}, ...mods);
+}
+function cloudInit() {
+  if (!CLOUD_ON) return Promise.reject(new Error('Chưa cấu hình Firebase'));
+  if (cloudReady) return cloudReady;
+  cloudReady = (async () => {
+    FB = await loadFirebase();
+    const app = FB.initializeApp(window.FIREBASE_CONFIG);
+    const auth = FB.getAuth(app);
+    fbDb = FB.getDatabase(app);
+    const emu = window.__FB_EMU;
+    if (emu) { FB.connectAuthEmulator(auth, `http://${emu.host}:${emu.authPort}`, { disableWarnings: true }); FB.connectDatabaseEmulator(fbDb, emu.host, emu.dbPort); }
+    const cred = await FB.signInAnonymously(auth);
+    myUid = cred.user.uid;
+    FB.onValue(dbRef('.info/connected'), s => { roomStatus = s.val() ? 'online' : 'offline'; renderHero(); });
+  })();
+  cloudReady.catch(() => { cloudReady = null; });
+  return cloudReady;
+}
+function cloudError(e) {
+  const m = String((e && (e.code || e.message)) || e);
+  if (/permission/i.test(m)) return 'Không có quyền thực hiện';
+  if (/network|offline|unavailable|fetch/i.test(m)) return 'Không kết nối được mạng';
+  return m;
+}
+
+/* ---------- đồng bộ ---------- */
+function schedulePush() {
+  if (!room || !room.admin || !FB) return;
+  clearTimeout(pushT);
+  pushT = setTimeout(pushNow, 250);
+}
+function pushNow() {
+  if (!room || !room.admin || !FB) return;
+  const s = JSON.stringify(syncPart());
+  if (s === lastRemote) return;
+  lastRemote = s;
+  FB.set(dbRef('data/' + room.key), { s, t: FB.serverTimestamp(), by: myUid }).catch(e => {
+    if (/permission/i.test(String(e && (e.code || e.message)))) { room.admin = false; rememberRoom(room); render(); toast('Mất quyền quản lý — hãy nhập lại mã quản lý'); }
+    else toast('Chưa lưu được lên mạng: ' + cloudError(e));
+  });
+}
+function applyRemote(obj) {
+  S.players = obj.players || [];
+  S.settings = Object.assign({ courts: 2, mode: 'balanced', preview: 3 }, obj.settings);
+  S.session = Object.assign({ rounds: [], credit: {} }, obj.session);
+  try { localStorage.setItem(ctxKey(), JSON.stringify(S)); } catch (e) {}
+  selSlot = null;
+  render();
+}
+function subscribeRoom() {
+  if (unsubRoom) unsubRoom();
+  const key = room.key;
+  unsubRoom = FB.onValue(dbRef('data/' + key), snap => {
+    if (!room || room.key !== key) return;
+    const v = snap.val();
+    if (!v) { toast('Phòng không còn dữ liệu'); return; }
+    if (v.s === lastRemote) return;
+    lastRemote = v.s;
+    try { applyRemote(JSON.parse(v.s)); } catch (e) {}
+  }, e => toast('Lỗi đồng bộ: ' + cloudError(e)));
+}
+
+/* ---------- phòng gần đây (chỉ lưu trên máy này) ---------- */
+function recentRooms() { try { return JSON.parse(localStorage.getItem(LS_RECENT) || '[]'); } catch (e) { return []; } }
+function rememberRoom(r) {
+  const list = recentRooms().filter(x => x.id !== r.id);
+  list.unshift({ id: r.id, name: r.name, key: r.key, admin: !!r.admin, pw: r.pw || '' });
+  try { localStorage.setItem(LS_RECENT, JSON.stringify(list.slice(0, 10))); localStorage.setItem('badminton_room_cur', JSON.stringify(r)); } catch (e) {}
+}
+function forgetRoom(id) {
+  try { localStorage.setItem(LS_RECENT, JSON.stringify(recentRooms().filter(x => x.id !== id))); localStorage.removeItem('badminton_room_' + id); } catch (e) {}
+  openRoomSheet();
+}
+
+/* ---------- vào / tạo / rời phòng ---------- */
+function enterRoom(info) {
+  room = info; rememberRoom(room);
+  const tab = S.tab;
+  S = loadState(); S.tab = tab === 'players' && !room.admin ? 'play' : tab;
+  lastRemote = ''; selSlot = null; focusId = null;
+  subscribeRoom();
+  closeSheet(); render(); window.scrollTo(0, 0);
+}
+async function openRoomByKey(id, key, pw) {
+  await cloudInit();
+  const r = await FB.get(dbRef('rooms/' + id));
+  if (!r.exists()) throw new Error('Không tìm thấy phòng "' + id + '"');
+  const d = await FB.get(dbRef('data/' + key));
+  if (!d.exists()) throw new Error('Sai mật khẩu');
+  const adm = await FB.get(dbRef('admins/' + key + '/' + myUid)).catch(() => null);
+  const old = recentRooms().find(x => x.id === id);
+  enterRoom({ id, name: r.val().name, key, admin: !!(adm && adm.exists()), pw: pw || (old && old.pw) || '' });
+}
+async function joinRoom(idRaw, pw) {
+  const id = normId(idRaw);
+  if (!id) throw new Error('Nhập mã phòng');
+  if (!pw) throw new Error('Nhập mật khẩu');
+  await openRoomByKey(id, await viewKeyOf(id, pw), pw);
+}
+async function createRoom(name, idRaw, pw, code, copyLocal) {
+  const id = normId(idRaw);
+  if (!name.trim()) throw new Error('Nhập tên nhóm');
+  if (id.length < 3) throw new Error('Mã phòng cần ít nhất 3 ký tự (chữ, số, dấu -)');
+  if (pw.length < 4) throw new Error('Mật khẩu cần ít nhất 4 ký tự');
+  if (code.length < 4) throw new Error('Mã quản lý cần ít nhất 4 ký tự');
+  if (code === pw) throw new Error('Mã quản lý phải khác mật khẩu xem');
+  await cloudInit();
+  if ((await FB.get(dbRef('rooms/' + id))).exists()) throw new Error('Mã phòng "' + id + '" đã có người dùng, chọn mã khác');
+  const key = await viewKeyOf(id, pw), ak = await adminKeyOf(id, code);
+  const init = copyLocal ? { players: S.players.map(p => ({ ...p })), settings: { ...S.settings }, session: { rounds: [], credit: {} } }
+                         : { players: [], settings: { courts: 2, mode: 'balanced', preview: 3 }, session: { rounds: [], credit: {} } };
+  await FB.set(dbRef('rooms/' + id), { name: name.trim().slice(0, 40), created: FB.serverTimestamp() });
+  await FB.set(dbRef('adminKeys/' + key), ak);
+  await FB.set(dbRef('admins/' + key + '/' + myUid), ak);
+  await FB.set(dbRef('data/' + key), { s: JSON.stringify(init), t: FB.serverTimestamp(), by: myUid });
+  try { localStorage.setItem('badminton_room_' + id, JSON.stringify(Object.assign(defaultState(), init, { tab: 'players' }))); } catch (e) {}
+  enterRoom({ id, name: name.trim().slice(0, 40), key, admin: true, pw });
+  toast('Đã tạo phòng 🎉 Bấm "Mời" để gửi cho cả nhóm');
+}
+async function unlockAdmin(code) {
+  if (!code) throw new Error('Nhập mã quản lý');
+  await cloudInit();
+  const ak = await adminKeyOf(room.id, code);
+  try { await FB.set(dbRef('admins/' + room.key + '/' + myUid), ak); }
+  catch (e) { throw new Error(/permission/i.test(String(e.code || e.message)) ? 'Sai mã quản lý' : cloudError(e)); }
+  room.admin = true; rememberRoom(room); closeSheet(); render(); toast('🔓 Đã mở quyền quản lý');
+}
+function leaveRoom() {
+  if (unsubRoom) unsubRoom(); unsubRoom = null;
+  room = null; try { localStorage.removeItem('badminton_room_cur'); } catch (e) {}
+  S = loadState(); selSlot = null; focusId = null;
+  closeSheet(); render(); toast('Đã rời phòng — đang dùng dữ liệu trên máy');
+}
+function inviteLink() { return `${location.origin}${location.pathname}#r=${encodeURIComponent(room.id)}&k=${room.key}`; }
+function shareInvite() {
+  const lines = [`🏸 Mời vào phòng cầu lông "${room.name}"`, `👉 Bấm để xem lịch đánh: ${inviteLink()}`];
+  lines.push('', `Hoặc mở ${location.origin}${location.pathname} → Phòng → Vào phòng`, `Mã phòng: ${room.id}` + (room.pw ? `\nMật khẩu: ${room.pw}` : ''));
+  shareText(lines.join('\n'));
+}
+
+/* ---------- giao diện phòng ---------- */
+async function runBusy(btn, fn) {
+  const label = btn.innerHTML; btn.disabled = true; btn.innerHTML = '⏳ Đang kết nối…';
+  try { await fn(); } catch (e) { toast('⚠️ ' + (e && e.message ? cloudError(e) : e)); }
+  finally { if (document.body.contains(btn)) { btn.disabled = false; btn.innerHTML = label; } }
+}
+const statusText = () => ({ online: 'Đang kết nối trực tiếp', offline: 'Mất mạng — sẽ tự đồng bộ lại', connecting: 'Đang kết nối…' }[roomStatus]);
+function openRoomSheet() {
+  haptic();
+  if (!CLOUD_ON) return openSheet(`<h3>☁️ Phòng chơi chung</h3>
+    <p>Chế độ phòng online chưa được bật trên trang này. Người cài đặt trang cần tạo dự án Firebase (miễn phí) và dán cấu hình vào file <b>config.js</b> — xem hướng dẫn trong README.</p>
+    <button class="btn block" onclick="closeSheet()">Đóng</button>`);
+  if (room) return openSheet(`
+    <div class="room-card"><div class="logo">🏸</div><div style="min-width:0"><h3 style="margin:0">${esc(room.name)}</h3>
+      <div class="small muted">Mã phòng: <b>${esc(room.id)}</b>${room.pw ? ` · Mật khẩu: <b>${esc(room.pw)}</b>` : ''}</div></div></div>
+    <div class="room-meta"><span class="role ${room.admin ? 'adm' : ''}">${room.admin ? '✏️ Quản lý' : '👁 Chỉ xem'}</span>
+      <span class="small muted"><i class="dot ${roomStatus}"></i> ${statusText()}</span></div>
+    <div style="display:grid;gap:10px;margin-top:16px">
+      <button class="btn primary block" onclick="shareInvite()">📨 Mời mọi người vào phòng</button>
+      ${room.admin ? '' : `<button class="btn block" onclick="openUnlock()">🔑 Nhập mã quản lý để sửa</button>`}
+      <button class="btn block" onclick="openRoomList()">🔁 Đổi phòng khác</button>
+      <button class="btn danger block" onclick="leaveRoom()">↩️ Rời phòng (dùng trên máy)</button>
+    </div>`);
+  openRoomList();
+}
+function openRoomList() {
+  const rec = recentRooms();
+  openSheet(`<h3>☁️ Phòng chơi chung</h3>
+    <p>Tạo phòng cho nhóm của bạn — cả nhóm mở link là xem được lịch đánh, cập nhật trực tiếp. Mỗi phòng có mật khẩu riêng.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <button class="btn primary" onclick="openCreate()">➕ Tạo phòng</button>
+      <button class="btn" onclick="openJoin()">🔑 Vào phòng</button></div>
+    ${rec.length ? `<div class="sec-title" style="margin-top:20px"><h2>Phòng gần đây</h2></div>
+      <div class="plist" style="box-shadow:none;border:1px solid var(--line)">${rec.map(r => `
+        <div class="prow"><button class="tap" onclick="runBusy(this,()=>openRoomByKey('${r.id}','${r.key}'))">
+          <div class="av" style="background:hsl(${hue(r.name)} 55% 46%)">${esc(initials(r.name))}</div>
+          <div style="min-width:0"><div class="nm">${esc(r.name)}${room && room.id === r.id ? ' <span class="tag">Đang ở</span>' : ''}</div>
+          <div class="meta">#${esc(r.id)} · ${r.admin ? 'Quản lý' : 'Chỉ xem'}</div></div></button>
+          <button class="x" style="width:36px;height:36px;color:var(--muted)" onclick="forgetRoom('${r.id}')" aria-label="Quên phòng">✕</button></div>`).join('')}</div>` : ''}
+    ${room ? '' : `<p class="small" style="margin:16px 0 0">Không vào phòng thì dữ liệu chỉ lưu trên máy này.</p>`}`);
+}
+function suggestId(name) { return (normId(name).slice(0, 20) || 'nhom') + '-' + (100 + Math.floor(Math.random() * 900)); }
+function openCreate() {
+  const has = S.players.length > 0 && !room;
+  openSheet(`<h3>➕ Tạo phòng mới</h3><p>Bạn sẽ là người quản lý phòng.</p>
+    <div class="field"><label>Tên nhóm</label><input type="text" id="rName" maxlength="40" placeholder="VD: Cầu lông Thứ 7"
+      oninput="if(!this.dataset.t){document.getElementById('rId').value=suggestId(this.value)}" data-t=""></div>
+    <div class="field"><label>Mã phòng <span class="hint-i">— để mọi người tìm phòng</span></label>
+      <input type="text" id="rId" maxlength="30" placeholder="vd: caulong-t7-123" autocapitalize="off" oninput="document.getElementById('rName').dataset.t='1'"></div>
+    <div class="field"><label>Mật khẩu vào xem <span class="hint-i">— gửi cho cả nhóm</span></label>
+      <input type="text" id="rPw" maxlength="40" placeholder="ít nhất 4 ký tự" autocapitalize="off" autocomplete="off"></div>
+    <div class="field"><label>Mã quản lý <span class="hint-i">— chỉ người xếp sân giữ</span></label>
+      <input type="text" id="rAdm" maxlength="40" placeholder="ít nhất 4 ký tự, khác mật khẩu" autocapitalize="off" autocomplete="off"></div>
+    ${has ? `<label class="check"><input type="checkbox" id="rCopy" checked> Dùng danh sách ${S.players.length} người chơi đang có trên máy</label>` : ''}
+    <div class="row2"><button class="btn" onclick="openRoomList()">Quay lại</button>
+      <button class="btn primary" onclick="runBusy(this,()=>createRoom(v('rName'),v('rId'),v('rPw'),v('rAdm'),!!(document.getElementById('rCopy')||{}).checked))">Tạo phòng</button></div>
+    <p class="small" style="margin:12px 0 0">⚠️ Hãy ghi nhớ mật khẩu và mã quản lý — không thể khôi phục nếu quên.</p>`);
+}
+const v = id => (document.getElementById(id) || { value: '' }).value.trim();
+function openJoin(prefill) {
+  openSheet(`<h3>🔑 Vào phòng</h3><p>Nhập mã phòng và mật khẩu do người quản lý gửi.</p>
+    <div class="field"><label>Mã phòng</label><input type="text" id="jId" maxlength="30" autocapitalize="off" value="${esc(prefill || '')}"></div>
+    <div class="field"><label>Mật khẩu</label><input type="text" id="jPw" maxlength="40" autocapitalize="off" autocomplete="off"></div>
+    <div class="row2"><button class="btn" onclick="openRoomList()">Quay lại</button>
+      <button class="btn primary" onclick="runBusy(this,()=>joinRoom(v('jId'),v('jPw')))">Vào phòng</button></div>`);
+}
+function openUnlock() {
+  openSheet(`<h3>🔑 Mã quản lý</h3><p>Nhập mã quản lý để được xếp sân, thêm người, sửa kết quả trên máy này.</p>
+    <div class="field"><input type="text" id="uCode" maxlength="40" autocapitalize="off" autocomplete="off" placeholder="Mã quản lý"></div>
+    <div class="row2"><button class="btn" onclick="openRoomSheet()">Quay lại</button>
+      <button class="btn primary" onclick="runBusy(this,()=>unlockAdmin(v('uCode')))">Mở khoá</button></div>`);
+}
+function lockedToast() { toast('🔒 Chỉ xem — nhập mã quản lý để sửa'); }
+
+// Chặn mọi thao tác sửa khi đang ở chế độ chỉ xem
+['addPlayers', 'quickAdd', 'togglePlayer', 'setLevel', 'removePlayer', 'editPlayer', 'renamePlayer', 'generateRound', 'finishRound',
+ 'newSession', 'setWinner', 'tapSlot', 'editMatch', 'replan', 'openSettings', 'setCourts', 'setMode', 'setPreview', 'setAllActive'].forEach(n => {
+  const f = window[n]; if (typeof f !== 'function') return;
+  window[n] = function () { if (!canEdit()) { lockedToast(); return; } return f.apply(this, arguments); };
+});
+
+/* ---------- khởi động: link mời / phòng đang dùng ---------- */
+function bootCloud() {
+  if (!CLOUD_ON) return;
+  const h = new URLSearchParams(location.hash.slice(1));
+  const q = new URLSearchParams(location.search);
+  if (h.get('r') && h.get('k')) {
+    const id = normId(h.get('r')), key = h.get('k');
+    history.replaceState(null, '', location.pathname + location.search);
+    openRoomByKey(id, key).then(() => toast('Đã vào phòng ' + room.name)).catch(e => { toast('⚠️ ' + cloudError(e)); if (room) subscribeRoom(); });
+    return;
+  }
+  if (room) {
+    cloudInit().then(async () => {
+      subscribeRoom();
+      const adm = await FB.get(dbRef('admins/' + room.key + '/' + myUid)).catch(() => null);
+      const isAdm = !!(adm && adm.exists());
+      if (isAdm !== !!room.admin) { room.admin = isAdm; rememberRoom(room); render(); }
+    }).catch(e => { roomStatus = 'offline'; renderHero(); toast('⚠️ ' + cloudError(e)); });
+  } else if (q.get('room')) openJoin(normId(q.get('room')));
+}
+
 /* ================== RENDER ================== */
 function render() {
   const act = activePlayers().length;
   const rounds = S.session.rounds, r = curRound();
-  document.getElementById('hero').innerHTML = `
-    <div class="hero-top"><div class="logo">🏸</div><h1>Xếp Sân Cầu Lông</h1></div>
-    <div class="pills">
-      <div class="pill"><b>${act}</b><span>có mặt</span></div>
-      <div class="pill"><b>${Math.min(S.settings.courts, Math.max(1, Math.floor(act / 4)))}</b><span>sân</span></div>
-      <div class="pill"><b>${rounds.length}</b><span>vòng</span></div>
-    </div>`;
+  renderHero();
   const tabs = [['players', 'Người chơi', ICON.users], ['play', 'Xếp sân', ICON.court], ['stats', 'Thống kê', ICON.chart]];
   document.getElementById('nav').innerHTML = tabs.map(([k, l, ic]) =>
     `<button class="${S.tab === k ? 'on' : ''}" onclick="goTab('${k}')">${ic}${l}${k === 'play' && r && S.tab !== 'play' ? `<span class="badge">${r.no}</span>` : ''}</button>`).join('');
@@ -741,11 +1042,25 @@ function render() {
   const app = document.getElementById('app');
   app.innerHTML = S.tab === 'players' ? viewPlayers() : S.tab === 'play' ? viewPlay() : viewStats();
   const bar = document.getElementById('bar');
-  bar.innerHTML = barHtml();
+  bar.innerHTML = canEdit() ? barHtml() : '';
   document.body.classList.toggle('has-bar', !!bar.innerHTML.trim());
+  document.body.classList.toggle('ro', !canEdit());
   animNext = false;
   const inp = document.getElementById('nameInput');
   if (inp) inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); quickAdd(); } };
+}
+function renderHero() {
+  const act = activePlayers().length, rounds = S.session.rounds;
+  document.getElementById('hero').innerHTML = `
+    <div class="hero-top"><div class="logo">🏸</div>
+      <div class="ht"><h1>${room ? esc(room.name) : 'Xếp Sân Cầu Lông'}</h1>
+        ${room ? `<div class="rsub"><i class="dot ${roomStatus}"></i>${room.admin ? '✏️ Quản lý' : '👁 Chỉ xem'} · #${esc(room.id)}</div>` : ''}</div>
+      <button class="room-btn" onclick="openRoomSheet()">${room ? '👥 Phòng' : '☁️ Phòng'}</button></div>
+    <div class="pills">
+      <div class="pill"><b>${act}</b><span>có mặt</span></div>
+      <div class="pill"><b>${Math.min(S.settings.courts, Math.max(1, Math.floor(act / 4)))}</b><span>sân</span></div>
+      <div class="pill"><b>${rounds.length}</b><span>vòng</span></div>
+    </div>`;
 }
 function goTab(t) { haptic(); S.tab = t; selSlot = null; save(); render(); window.scrollTo(0, 0); }
 
@@ -772,12 +1087,13 @@ function viewPlayers() {
   const on = S.players.filter(p => p.active), off = S.players.filter(p => !p.active);
   const row = p => `
     <div class="prow ${p.active ? '' : 'off'}">
-      <button class="tap" onclick="editPlayer('${p.id}')">${avatar(p)}
+      <button class="tap" onclick="${ed ? `editPlayer('${p.id}')` : `focusP('${p.id}');goTab('play')`}">${avatar(p)}
         <div style="min-width:0"><div class="nm">${esc(p.name)}</div><div class="meta">${LV[p.level]}</div></div></button>
-      <button onclick="editPlayer('${p.id}')">${lvBadge(p)}</button>
-      <button class="toggle ${p.active ? 'on' : ''}" onclick="haptic();togglePlayer('${p.id}')" aria-label="Có mặt"></button>
+      <button onclick="${ed ? `editPlayer('${p.id}')` : ''}">${lvBadge(p)}</button>
+      ${ed ? `<button class="toggle ${p.active ? 'on' : ''}" onclick="haptic();togglePlayer('${p.id}')" aria-label="Có mặt"></button>` : ''}
     </div>`;
-  const add = bulkMode ? `
+  const ed = canEdit();
+  const add = !ed ? `<div class="ro-note">👁 Bạn đang xem danh sách của phòng. Chỉ người quản lý được thêm / sửa.</div>` : bulkMode ? `
     <textarea id="bulkInput" placeholder="Dán danh sách, mỗi dòng 1 tên&#10;Ví dụ:&#10;1. Hùng&#10;2. Lan&#10;3. Minh"></textarea>
     <div style="display:flex;gap:8px;margin-top:8px"><button class="btn" onclick="bulkMode=false;render()">Huỷ</button>
       <button class="btn primary" style="flex:1" onclick="quickAdd()">Thêm tất cả</button></div>` : `
@@ -788,16 +1104,16 @@ function viewPlayers() {
       <p>Thêm tên các thành viên trong nhóm.<br>Danh sách được lưu lại cho các buổi sau.</p></div>`;
   return `${add}
     <div class="sec-title"><h2>Có mặt · ${on.length}</h2>
-      ${off.length ? `<button class="link" onclick="haptic();S.players.forEach(p=>{if(!p.active){p.active=true;giveCredit(p.id)}});save();render()">Chọn tất cả</button>`
-                   : `<button class="link" onclick="haptic();S.players.forEach(p=>p.active=false);save();render()">Bỏ chọn hết</button>`}</div>
+      ${!ed ? '' : off.length ? `<button class="link" onclick="haptic();setAllActive(true)">Chọn tất cả</button>`
+                   : `<button class="link" onclick="haptic();setAllActive(false)">Bỏ chọn hết</button>`}</div>
     ${on.length ? `<div class="plist">${on.map(row).join('')}</div>` : `<div class="card small muted" style="text-align:center">Bật công tắc để đánh dấu ai có mặt hôm nay</div>`}
     ${off.length ? `<div class="sec-title"><h2>Vắng · ${off.length}</h2></div><div class="plist">${off.map(row).join('')}</div>` : ''}
-    <div class="tip">💡 <span>Chạm vào tên để sửa tên / trình độ. Trình độ 1 (mới chơi) → 5 (giỏi) giúp chia đội cân sức.</span></div>`;
+    <div class="tip" ${ed ? '' : 'hidden'}>💡 <span>Chạm vào tên để sửa tên / trình độ. Trình độ 1 (mới chơi) → 5 (giỏi) giúp chia đội cân sức.</span></div>`;
 }
 
 function chip(id, ref, team) {
   const p = P(id), sel = selSlot && JSON.stringify(selSlot) === JSON.stringify(ref);
-  return `<button class="chip ${sel ? 'sel' : ''} ${focusId === id ? 'hl' : ''}" style="${team ? `--tc:var(--team-${team})` : ''}" onclick='tapSlot(${JSON.stringify(ref)})'>
+  return `<button class="chip ${sel ? 'sel' : ''} ${focusId === id ? 'hl' : ''}" style="${team ? `--tc:var(--team-${team})` : ''}" onclick='${canEdit() ? `tapSlot(${JSON.stringify(ref)})` : `focusP("${id}")`}'>
     ${avatar(p, 'sm')}<span class="nm">${esc(p.name)}</span>${S.settings.mode === 'balanced' ? `<span class="lvn">${p.level}</span>` : ''}</button>`;
 }
 
@@ -806,6 +1122,8 @@ function viewPlay() {
   if (act < 4) return `<div class="card empty"><div class="big">🏸</div><h3>Cần ít nhất 4 người</h3>
       <p>Hiện có ${act} người có mặt. Thêm người chơi hoặc bật "có mặt".</p>
       <button class="btn primary" onclick="goTab('players')">Đến danh sách người chơi</button></div>`;
+  if (!r && !canEdit()) return `<div class="card empty"><div class="big">⏳</div><h3>Chờ người quản lý xếp sân</h3>
+      <p>Trang sẽ tự cập nhật ngay khi có vòng mới — không cần tải lại.</p></div>`;
   if (!r) return `<div class="sec-title"><h2>Cài đặt</h2></div><div class="card">${settingsHtml()}</div>
     <div class="card empty" style="margin-top:12px"><div class="big">🎲</div>
       <h3>${S.session.rounds.length ? `Đã chơi ${S.session.rounds.length} vòng` : 'Sẵn sàng xếp sân'}</h3>
@@ -816,11 +1134,12 @@ function viewPlay() {
     const half = t => `<div class="half ${t} ${c.winner === t ? 'won' : c.winner ? 'lost' : ''}">
         <div class="team-tag">ĐỘI ${t === 'a' ? 'A' : 'B'}</div>
         ${c[t].map((id, i) => chip(id, { c: ci, t, i }, t)).join('')}
-        <button class="win" onclick="haptic();setWinner(${ci},'${t}')">🏆 ${c.winner === t ? 'Thắng!' : 'Thắng'}</button>
+        ${canEdit() ? `<button class="win" onclick="haptic();setWinner(${ci},'${t}')">🏆 ${c.winner === t ? 'Thắng!' : 'Thắng'}</button>`
+          : c.winner === t ? `<div class="win">🏆 Thắng!</div>` : ''}
       </div>`;
     return `<div class="court-card ${animNext ? 'anim' : ''}" style="--d:${ci * 70}ms">
       <div class="court-head"><div class="court-no"><i>${ci + 1}</i><div>Sân ${ci + 1}${bal ? `<span class="court-sum">Trình ${sum('a')} – ${sum('b')}</span>` : ''}</div></div>
-        <button class="score-btn ${c.score ? 'has' : ''}" onclick="editMatch(${S.session.rounds.length - 1},${ci})">${c.score ? c.score.join(' – ') : `${ICON.edit} Tỉ số`}</button></div>
+        ${canEdit() || c.score ? `<button class="score-btn ${c.score ? 'has' : ''}" onclick="editMatch(${S.session.rounds.length - 1},${ci})">${c.score ? c.score.join(' – ') : `${ICON.edit} Tỉ số`}</button>` : ''}</div>
       <div class="court">${half('a')}<div class="vs">VS</div>${half('b')}</div>
     </div>`;
   }).join('');
@@ -829,10 +1148,11 @@ function viewPlay() {
       <div class="rest-wrap">${r.resting.map((id, i) => chip(id, { rest: i })).join('')}</div></div>` : '';
   return `
     <div class="round-h"><div class="t"><b>Vòng ${r.no}</b><span>${selSlot ? '👆 Chọn người thứ 2 để đổi chỗ' : `${r.courts.length} sân · ${bal ? 'cân trình' : 'ngẫu nhiên'}`}</span></div>
-      <button class="icon-btn" onclick="openSettings()" aria-label="Cài đặt">${ICON.gear}</button>
+      ${canEdit() ? `<button class="icon-btn" onclick="openSettings()" aria-label="Cài đặt">${ICON.gear}</button>` : ''}
       <button class="icon-btn" onclick="openShare()" aria-label="Gửi nhóm">${ICON.share}</button></div>
     ${courts}${rest}
-    <div class="tip">💡 <span>Chạm 2 người bất kỳ để đổi chỗ (kể cả người đang nghỉ). Bấm 🏆 để ghi đội thắng — tuỳ chọn.</span></div>
+    <div class="tip">💡 <span>${canEdit() ? 'Chạm 2 người bất kỳ để đổi chỗ (kể cả người đang nghỉ). Bấm 🏆 để ghi đội thắng — tuỳ chọn.'
+      : 'Chạm vào tên để tô sáng người đó và xem lịch đánh / nghỉ. Trang tự cập nhật khi người quản lý thay đổi.'}</span></div>
     ${upcomingHtml(r)}`;
 }
 
@@ -856,9 +1176,9 @@ function upcomingHtml(r) {
         <div class="pair">${c.a.map(nmBtn).join('')}</div><span class="vsm">vs</span><div class="pair r">${c.b.map(nmBtn).join('')}</div></div>`).join('')}
       ${rd.resting.length ? `<div class="nrest">☕ <div class="pair-wrap">${rd.resting.map(nmBtn).join('')}</div></div>` : ''}
     </div>`).join('');
-  return `<div class="sec-title" style="margin-top:22px"><h2>Các vòng tiếp theo</h2><button class="link" onclick="replan()">🔄 Xếp lại lịch</button></div>
+  return `<div class="sec-title" style="margin-top:22px"><h2>Các vòng tiếp theo</h2>${canEdit() ? `<button class="link" onclick="replan()">🔄 Xếp lại lịch</button>` : ''}</div>
     ${focus}${cards}
-    <div class="tip">ℹ️ <span>Lịch dự kiến giữ nguyên khi bấm "Vòng tiếp". Lịch tự tính lại nếu có người đến/về, đổi chỗ hoặc đổi cài đặt.</span></div>`;
+    <div class="tip" ${canEdit() ? '' : 'hidden'}>ℹ️ <span>Lịch dự kiến giữ nguyên khi bấm "Vòng tiếp". Lịch tự tính lại nếu có người đến/về, đổi chỗ hoặc đổi cài đặt.</span></div>`;
 }
 
 function viewStats() {
@@ -885,23 +1205,24 @@ function viewStats() {
     <details class="hist" ${isOpen ? 'open' : ''} ontoggle="histToggle(${r.no}, this.open)"><summary>Vòng ${r.no} ${r.done ? '' : '<span class="tag">Đang chơi</span>'}
       <span class="small muted" style="font-weight:500">${res}/${r.courts.length} có kết quả</span><span class="chev">${ICON.chev}</span></summary>
       <div class="body">${r.courts.map((c, i) => `<button class="match" onclick="editMatch(${ri},${i})"><div class="side ${c.winner === 'a' ? 'w' : ''}">${nm(c.a)}</div>
-        <div class="mid-s"><span class="sn">S${i + 1}</span>${c.score ? `<b class="sc">${c.score.join('–')}</b>` : c.winner ? '' : `<span class="ed">${ICON.edit}</span>`}</div>
+        <div class="mid-s"><span class="sn">S${i + 1}</span>${c.score ? `<b class="sc">${c.score.join('–')}</b>` : c.winner || !canEdit() ? '' : `<span class="ed">${ICON.edit}</span>`}</div>
         <div class="side r ${c.winner === 'b' ? 'w' : ''}">${nm(c.b)}</div></button>`).join('')}
         ${r.resting.length ? `<div class="small muted" style="padding-top:6px">☕ Nghỉ: ${r.resting.map(id => esc(P(id).name)).join(', ')}</div>` : ''}</div></details>`;
   }).join('');
   if (!rounds.length) return `<div class="card empty"><div class="big">📊</div><h3>Chưa có dữ liệu</h3><p>Thống kê sẽ hiện sau khi chơi xong vòng đầu tiên.</p>
-    <button class="btn primary" onclick="goTab('play')">Bắt đầu xếp sân</button></div>`;
+    ${canEdit() ? `<button class="btn primary" onclick="goTab('play')">Bắt đầu xếp sân</button>` : ''}</div>`;
   return `
     <div class="tiles"><div class="tile"><b>${doneR.length}</b><span>vòng xong</span></div>
       <div class="tile"><b>${matches}</b><span>trận đấu</span></div><div class="tile"><b>${list.length}</b><span>người chơi</span></div></div>
     <div class="sec-title"><h2>${anyWin ? 'Bảng xếp hạng' : 'Số trận mỗi người'}</h2></div>
     ${rows && doneR.length ? `<div class="plist">${rows}</div>` : `<div class="card small muted" style="text-align:center">Bấm "Xong" sau mỗi vòng để tính thống kê</div>`}
     <div class="sec-title"><h2>Lịch sử</h2></div>
-    <div class="tip" style="margin:0 4px 10px">✏️ <span>Chạm vào một trận để ghi hoặc sửa kết quả, kể cả các vòng đã xong.</span></div>${hist}
-    <button class="btn danger block" style="margin-top:8px" onclick="newSession()">🧹 Bắt đầu buổi mới</button>`;
+    <div class="tip" style="margin:0 4px 10px" ${canEdit() ? '' : 'hidden'}>✏️ <span>Chạm vào một trận để ghi hoặc sửa kết quả, kể cả các vòng đã xong.</span></div>${hist}
+    ${canEdit() ? `<button class="btn danger block" style="margin-top:8px" onclick="newSession()">🧹 Bắt đầu buổi mới</button>` : ''}`;
 }
 
 render();
+bootCloud();
 </script>
 </body>
 </html>
